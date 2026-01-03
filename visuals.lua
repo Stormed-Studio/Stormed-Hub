@@ -1,5 +1,5 @@
 -- visuals.lua
--- Modern Stormed Hub GUI
+-- Modern clean Stormed Hub UI (slider only)
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -7,81 +7,78 @@ local player = Players.LocalPlayer
 
 -- ScreenGui
 local gui = Instance.new("ScreenGui")
-gui.Name = "VisualsGui"
+gui.Name = "StormedHubGui"
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
 -- Main frame
 local frame = Instance.new("Frame")
-frame.Size = UDim2.fromOffset(350, 220)
-frame.Position = UDim2.fromScale(0.5, 0.5) - UDim2.fromOffset(175, 110)
-frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)  -- dark black but not pure
+frame.Size = UDim2.fromOffset(380, 200)
+frame.Position = UDim2.fromScale(0.5, 0.5) - UDim2.fromOffset(190, 100)
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 frame.BorderSizePixel = 0
-frame.ClipsDescendants = true
 frame.Parent = gui
 
--- Rounded corners
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 12)
-corner.Parent = frame
+local frameCorner = Instance.new("UICorner")
+frameCorner.CornerRadius = UDim.new(0, 10)
+frameCorner.Parent = frame
 
 -- Top bar
 local topBar = Instance.new("Frame")
-topBar.Size = UDim2.new(1, 0, 0, 40)
+topBar.Size = UDim2.new(1, 0, 0, 44)
 topBar.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 topBar.BorderSizePixel = 0
 topBar.Parent = frame
 
-local topCorner = Instance.new("UICorner")
-topCorner.CornerRadius = UDim.new(0, 12)
-topCorner.Parent = topBar
+local topBarCorner = Instance.new("UICorner")
+topBarCorner.CornerRadius = UDim.new(0, 10)
+topBarCorner.Parent = topBar
 
--- Logo + Name
+-- Logo
 local logo = Instance.new("TextLabel")
-logo.Size = UDim2.fromOffset(40, 40)
-logo.Position = UDim2.new(1, -180, 0, 0)
+logo.Size = UDim2.fromOffset(36, 36)
+logo.Position = UDim2.fromOffset(12, 4)
 logo.Text = "ΣΤ"
 logo.Font = Enum.Font.GothamBold
-logo.TextColor3 = Color3.fromRGB(180, 0, 255)
+logo.TextColor3 = Color3.fromRGB(180, 0, 255)  -- purple only here
 logo.TextScaled = true
 logo.BackgroundTransparency = 1
 logo.Parent = topBar
 
-local name = Instance.new("TextLabel")
-name.Size = UDim2.fromOffset(120, 40)
-name.Position = UDim2.new(1, -140, 0, 0)
-name.Text = "Stormed Hub"
-name.Font = Enum.Font.GothamBold
-name.TextColor3 = Color3.fromRGB(180, 180, 255)
-name.TextScaled = true
-name.BackgroundTransparency = 1
-name.TextXAlignment = Enum.TextXAlignment.Left
-name.Parent = topBar
+-- Name
+local nameLabel = Instance.new("TextLabel")
+nameLabel.Size = UDim2.fromOffset(200, 36)
+nameLabel.Position = UDim2.fromOffset(56, 4)
+nameLabel.Text = "Stormed Hub"
+nameLabel.Font = Enum.Font.GothamBold
+nameLabel.TextColor3 = Color3.fromRGB(245, 245, 245)  -- white
+nameLabel.TextScaled = true
+nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+nameLabel.BackgroundTransparency = 1
+nameLabel.Parent = topBar
 
 -- Close button
-local close = Instance.new("TextButton")
-close.Size = UDim2.fromOffset(35, 35)
-close.Position = UDim2.new(1, -40, 0, 2)
-close.Text = "X"
-close.Font = Enum.Font.GothamBold
-close.TextColor3 = Color3.new(1, 1, 1)
-close.TextScaled = true
-close.BackgroundColor3 = Color3.fromRGB(120, 0, 150)
-close.BorderSizePixel = 0
-close.Parent = topBar
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.fromOffset(28, 28)
+closeBtn.Position = UDim2.new(1, -36, 0, 8)
+closeBtn.BackgroundColor3 = Color3.fromRGB(115, 115, 115)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextScaled = true
+closeBtn.Parent = topBar
 
 local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(0, 6)
-closeCorner.Parent = close
+closeCorner.Parent = closeBtn
 
-close.MouseButton1Click:Connect(function()
+closeBtn.MouseButton1Click:Connect(function()
 	gui:Destroy()
 end)
 
--- Draggable frame
+-- Drag behavior
 local dragging = false
-local dragStart
-local startPos
+local dragStart, startPos
 
 topBar.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -109,77 +106,61 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
--- Body frame for content
-local bodyFrame = Instance.new("Frame")
-bodyFrame.Size = UDim2.new(1, -20, 1, -50)
-bodyFrame.Position = UDim2.fromOffset(10, 45)
-bodyFrame.BackgroundTransparency = 1
-bodyFrame.Parent = frame
+-- Body area
+local body = Instance.new("Frame")
+body.Size = UDim2.new(1, -24, 1, -60)
+body.Position = UDim2.fromOffset(12, 52)
+body.BackgroundTransparency = 1
+body.Parent = frame
 
--- Rounded slider for speed
-local sliderLabel = Instance.new("TextLabel")
-sliderLabel.Size = UDim2.fromOffset(300, 25)
-sliderLabel.Position = UDim2.fromOffset(10, 10)
-sliderLabel.BackgroundTransparency = 1
-sliderLabel.Text = "Speed: 16"
-sliderLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
-sliderLabel.Font = Enum.Font.GothamBold
-sliderLabel.TextScaled = true
-sliderLabel.TextXAlignment = Enum.TextXAlignment.Left
-sliderLabel.Parent = bodyFrame
+-- Speed label
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Size = UDim2.fromOffset(200, 24)
+speedLabel.Position = UDim2.fromOffset(0, 8)
+speedLabel.BackgroundTransparency = 1
+speedLabel.Font = Enum.Font.Gotham
+speedLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
+speedLabel.Text = "Speed"
+speedLabel.TextSize = 20
+speedLabel.TextXAlignment = Enum.TextXAlignment.Left
+speedLabel.Parent = body
 
-local sliderFrame = Instance.new("Frame")
-sliderFrame.Size = UDim2.fromOffset(300, 20)
-sliderFrame.Position = UDim2.fromOffset(10, 45)
-sliderFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-sliderFrame.BorderSizePixel = 0
-sliderFrame.Parent = bodyFrame
+-- Slider bar background
+local sliderBack = Instance.new("Frame")
+sliderBack.Size = UDim2.fromOffset(300, 14)
+sliderBack.Position = UDim2.fromOffset(0, 42)
+sliderBack.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+sliderBack.BorderSizePixel = 0
+sliderBack.Parent = body
 
-local sliderCorner = Instance.new("UICorner")
-sliderCorner.CornerRadius = UDim.new(0, 8)
-sliderCorner.Parent = sliderFrame
+local sliderBackCorner = Instance.new("UICorner")
+sliderBackCorner.CornerRadius = UDim.new(0, 7)
+sliderBackCorner.Parent = sliderBack
 
-local sliderBar = Instance.new("Frame")
-sliderBar.Size = UDim2.new(0, 10, 1, 0)
-sliderBar.BackgroundColor3 = Color3.fromRGB(180, 0, 255)
-sliderBar.BorderSizePixel = 0
-sliderBar.Parent = sliderFrame
+-- Slider fill (purple)
+local sliderFill = Instance.new("Frame")
+sliderFill.Size = UDim2.new(0, 0, 1, 0)
+sliderFill.BackgroundColor3 = Color3.fromRGB(180, 0, 255)  -- purple
+sliderFill.BorderSizePixel = 0
+sliderFill.Parent = sliderBack
 
-local sliderBarCorner = Instance.new("UICorner")
-sliderBarCorner.CornerRadius = UDim.new(0, 8)
-sliderBarCorner.Parent = sliderBar
+local sliderFillCorner = Instance.new("UICorner")
+sliderFillCorner.CornerRadius = UDim.new(0, 7)
+sliderFillCorner.Parent = sliderFill
 
--- Slider functionality
-local draggingSlider = false
-local playerChar = player.Character or player.CharacterAdded:Wait()
-local humanoid = playerChar:WaitForChild("Humanoid")
+-- Speed value text
+local speedValueText = Instance.new("TextLabel")
+speedValueText.Size = UDim2.fromOffset(50, 24)
+speedValueText.Position = UDim2.fromOffset(310, 34)
+speedValueText.BackgroundTransparency = 1
+speedValueText.Font = Enum.Font.GothamBold
+speedValueText.TextColor3 = Color3.fromRGB(240, 240, 240)
+speedValueText.Text = "16"
+speedValueText.TextSize = 20
+speedValueText.TextXAlignment = Enum.TextXAlignment.Left
+speedValueText.Parent = body
 
-sliderBar.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		draggingSlider = true
-	end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		draggingSlider = false
-	end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-	if draggingSlider and input.UserInputType == Enum.UserInputType.MouseMovement then
-		local relative = math.clamp(input.Position.X - sliderFrame.AbsolutePosition.X, 0, sliderFrame.AbsoluteSize.X)
-		sliderBar.Size = UDim2.new(0, relative, 1, 0)
-		local value = math.floor((relative / sliderFrame.AbsoluteSize.X) * 100)
-		sliderLabel.Text = "Speed: " .. tostring(value)
-		humanoid.WalkSpeed = math.max(0, value)
-	end
-end)
-
--- Ensure slider applies on respawn
-player.CharacterAdded:Connect(function(char)
-	humanoid = char:WaitForChild("Humanoid")
-	local relative = sliderBar.AbsoluteSize.X
-	local value = math.floor((relative / sliderFrame.AbsoluteSize.X) * 100)
-	humanoid.WalkSpeed = math.max(0, value)
-end)
+-- Expose slider objects for main logic
+gui.SliderBack = sliderBack
+gui.SliderFill = sliderFill
+gui.SpeedValueText = speedValueText
