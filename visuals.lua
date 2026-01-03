@@ -1,5 +1,5 @@
 -- visuals.lua
--- Professional Roblox hub GUI (Stormed Hub)
+-- Stormed Hub - Professional GUI only (no game logic)
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -22,23 +22,26 @@ greeting.Font = Enum.Font.GothamBold
 greeting.TextColor3 = Color3.fromRGB(180, 0, 255)
 greeting.TextScaled = true
 greeting.TextTransparency = 1
-greeting.TextStrokeTransparency = 1
 greeting.Parent = gui
 
-TweenService:Create(greeting, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-    TextTransparency = 0
-}):Play()
+TweenService:Create(
+    greeting,
+    TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    {TextTransparency = 0}
+):Play()
 task.wait(0.8)
-TweenService:Create(greeting, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-    TextTransparency = 1
-}):Play()
+TweenService:Create(
+    greeting,
+    TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+    {TextTransparency = 1}
+):Play()
 task.wait(0.55)
 greeting:Destroy()
 
 -- === Main frame ===
 local frame = Instance.new("Frame")
 frame.Size = UDim2.fromOffset(430, 290)
-frame.Position = UDim2.fromScale(0.5, 1.3) -- start off-screen bottom
+frame.Position = UDim2.fromScale(0.5, 1.3) -- slide in from bottom
 frame.AnchorPoint = Vector2.new(0.5, 0.5)
 frame.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
 frame.BorderSizePixel = 0
@@ -49,10 +52,11 @@ local frameCorner = Instance.new("UICorner")
 frameCorner.CornerRadius = UDim.new(0, 6)
 frameCorner.Parent = frame
 
--- Smooth slide-in
-TweenService:Create(frame, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-    Position = UDim2.fromScale(0.5, 0.5)
-}):Play()
+TweenService:Create(
+    frame,
+    TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    {Position = UDim2.fromScale(0.5, 0.5)}
+):Play()
 
 -- === Top bar ===
 local topBar = Instance.new("Frame")
@@ -65,12 +69,12 @@ local topCorner = Instance.new("UICorner")
 topCorner.CornerRadius = UDim.new(0, 6)
 topCorner.Parent = topBar
 
-local topBarMask = Instance.new("Frame")
-topBarMask.Size = UDim2.new(1, 0, 0, 6)
-topBarMask.Position = UDim2.new(0, 0, 1, -6)
-topBarMask.BackgroundColor3 = topBar.BackgroundColor3
-topBarMask.BorderSizePixel = 0
-topBarMask.Parent = topBar
+local mask = Instance.new("Frame")
+mask.Size = UDim2.new(1, 0, 0, 6)
+mask.Position = UDim2.new(0, 0, 1, -6)
+mask.BackgroundColor3 = topBar.BackgroundColor3
+mask.BorderSizePixel = 0
+mask.Parent = topBar
 
 -- Logo
 local logo = Instance.new("TextLabel")
@@ -111,7 +115,16 @@ local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(0, 4)
 closeCorner.Parent = closeBtn
 
--- === Tabs ===
+-- === Drag area overlay (fixes drag issues) ===
+local dragArea = Instance.new("TextButton")
+dragArea.BackgroundTransparency = 1
+dragArea.Text = ""
+dragArea.Size = UDim2.new(1, -70, 1, 0)
+dragArea.Position = UDim2.fromOffset(0, 0)
+dragArea.ZIndex = topBar.ZIndex + 1
+dragArea.Parent = topBar
+
+-- === Tabs & folders ===
 local tabsFrame = Instance.new("Frame")
 tabsFrame.Size = UDim2.fromOffset(110, 230)
 tabsFrame.Position = UDim2.fromOffset(12, 50)
@@ -157,7 +170,6 @@ end
 
 folderFrames["Main"].Visible = true
 
--- Tab switching (with subtle fade)
 for name, btn in pairs(tabButtons) do
     btn.MouseButton1Click:Connect(function()
         for fname, fframe in pairs(folderFrames) do
@@ -176,7 +188,7 @@ for name, btn in pairs(tabButtons) do
     end)
 end
 
--- === DRAGGING ===
+-- === Dragging logic (robust) ===
 do
     local dragging = false
     local dragStart
@@ -192,11 +204,12 @@ do
         )
     end
 
-    topBar.InputBegan:Connect(function(input)
+    dragArea.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             dragStart = input.Position
             startPos = frame.Position
+
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -212,8 +225,7 @@ do
     end)
 end
 
--- === HELPERS TO BUILD CONTROLS (UI ONLY) ===
-
+-- === Control builders (UI only) ===
 local function createSlider(parent, labelText, yPos, min, max, default)
     local label = Instance.new("TextLabel")
     label.Size = UDim2.fromOffset(160, 18)
@@ -302,27 +314,26 @@ local function createToggle(parent, labelText, yPos)
     }
 end
 
--- === CHARACTER FOLDER CONTENT ===
+-- === Character folder content ===
 local characterFolder = folderFrames["Character"]
 local characterSliders = {}
 
 characterSliders.Speed = createSlider(characterFolder, "Speed", 10, 0, 100, 16)
-characterSliders.Jump = createSlider(characterFolder, "JumpPower", 70, 0, 200, 50)
+characterSliders.Jump  = createSlider(characterFolder, "JumpPower", 70, 0, 200, 50)
 
--- === VISUALS FOLDER CONTENT ===
+-- === Visuals folder content ===
 local visualsFolder = folderFrames["Visuals"]
 local visualsToggles = {}
 local visualsSliders = {}
 
 visualsToggles.PlayerHighlight = createToggle(visualsFolder, "Player Highlight", 10)
-visualsToggles.TeamHighlight = createToggle(visualsFolder, "Team Highlight", 46)
+visualsToggles.TeamHighlight   = createToggle(visualsFolder, "Team Highlight", 46)
 visualsToggles.PlayerLines     = createToggle(visualsFolder, "Player Lines", 82)
 
 visualsSliders.FOV = createSlider(visualsFolder, "Camera FOV", 130, 60, 120, 70)
 
--- === EXPOSE TO main.lua ===
+-- === Expose to main.lua ===
 gui.Frame = frame
-gui.TopBar = topBar
 gui.CloseButton = closeBtn
 gui.Folders = folderFrames
 
