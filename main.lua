@@ -1,6 +1,6 @@
--- main.lua loader + speed slider in Character folder
+-- main.lua
+-- Hub logic, sliders, and visuals
 
--- Load visuals (GUI + tabs)
 loadstring(game:HttpGet("https://raw.githubusercontent.com/Stormed-Studio/Stormed-Hub/main/visuals.lua"))()
 
 local Players = game:GetService("Players")
@@ -10,86 +10,86 @@ local player = Players.LocalPlayer
 
 local gui = player.PlayerGui:WaitForChild("StormedHubGui")
 local characterFolder = gui.Folders["Character"]
+local visualsFolder = gui.Folders["Visuals"]
+local frame = gui.Frame
 
--- Speed label
-local speedLabel = Instance.new("TextLabel")
-speedLabel.Size = UDim2.fromOffset(100, 24)
-speedLabel.Position = UDim2.fromOffset(10, 10)
-speedLabel.BackgroundTransparency = 1
-speedLabel.Text = "Speed"
-speedLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
-speedLabel.Font = Enum.Font.Gotham
-speedLabel.TextSize = 20
-speedLabel.TextXAlignment = Enum.TextXAlignment.Left
-speedLabel.Parent = characterFolder
+-- Restore defaults when closed
+local defaultSpeed = 16
+local defaultJump = 50
 
--- Slider bar
-local sliderBack = Instance.new("Frame")
-sliderBack.Size = UDim2.fromOffset(250, 14)
-sliderBack.Position = UDim2.fromOffset(10, 50)
-sliderBack.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-sliderBack.BorderSizePixel = 0
-sliderBack.Parent = characterFolder
-
-local sliderCorner = Instance.new("UICorner")
-sliderCorner.CornerRadius = UDim.new(0, 7)
-sliderCorner.Parent = sliderBack
-
--- Slider fill
-local sliderFill = Instance.new("Frame")
-sliderFill.Size = UDim2.new(0, 10, 1, 0)
-sliderFill.BackgroundColor3 = Color3.fromRGB(180, 0, 255)
-sliderFill.BorderSizePixel = 0
-sliderFill.Parent = sliderBack
-
-local fillCorner = Instance.new("UICorner")
-fillCorner.CornerRadius = UDim.new(0, 7)
-fillCorner.Parent = sliderFill
-
--- Speed value
-local speedValueText = Instance.new("TextLabel")
-speedValueText.Size = UDim2.fromOffset(50, 24)
-speedValueText.Position = UDim2.fromOffset(270, 46)
-speedValueText.BackgroundTransparency = 1
-speedValueText.Text = "16"
-speedValueText.Font = Enum.Font.GothamBold
-speedValueText.TextColor3 = Color3.fromRGB(240, 240, 240)
-speedValueText.TextSize = 20
-speedValueText.TextXAlignment = Enum.TextXAlignment.Left
-speedValueText.Parent = characterFolder
-
--- Connect slider to humanoid
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local draggingSlider = false
-
-sliderBack.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		draggingSlider = true
+local function resetCharacter()
+	if player.Character and player.Character:FindFirstChild("Humanoid") then
+		local hum = player.Character.Humanoid
+		hum.WalkSpeed = defaultSpeed
+		hum.JumpPower = defaultJump
 	end
+end
+
+-- Smooth open/close
+gui.CloseBtn.MouseButton1Click:Connect(function()
+	TweenService:Create(frame,TweenInfo.new(0.3),{Position=UDim2.new(0.5,0,1.2,0)}):Play()
+	resetCharacter()
 end)
 
-UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		draggingSlider = false
+-- === Character sliders ===
+local function createSliderLogic(slider)
+	local dragging=false
+	local bg = slider.BG
+	local fill = slider.Fill
+	local txt = slider.Text
+	local min,max = slider.min,slider.max
+
+	bg.InputBegan:Connect(function(input)
+		if input.UserInputType==Enum.UserInputType.MouseButton1 then
+			dragging=true
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType==Enum.UserInputType.MouseButton1 then
+			dragging=false
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and input.UserInputType==Enum.UserInputType.MouseMovement then
+			local posX = math.clamp(input.Position.X - bg.AbsolutePosition.X,0,bg.AbsoluteSize.X)
+			local perc = posX/bg.AbsoluteSize.X
+			fill.Size = UDim2.new(perc,0,1,0)
+			txt.Text = tostring(math.floor(min + perc*(max-min)))
+			-- Apply values
+			if slider==gui.CharacterSliders.speed then
+				if player.Character and player.Character:FindFirstChild("Humanoid") then
+					player.Character.Humanoid.WalkSpeed = tonumber(txt.Text)
+				end
+			elseif slider==gui.CharacterSliders.jump then
+				if player.Character and player.Character:FindFirstChild("Humanoid") then
+					player.Character.Humanoid.JumpPower = tonumber(txt.Text)
+				end
+			end
+		end
+	end)
+end
+
+-- Attach sliders
+createSliderLogic(gui.CharacterSliders.speed)
+createSliderLogic(gui.CharacterSliders.jump)
+
+-- === Visuals: Highlights and lines ===
+local function applyVisuals()
+	for _,plr in pairs(Players:GetPlayers()) do
+		if plr==player then continue end
+		local char = plr.Character
+		if char and char:FindFirstChild("HumanoidRootPart") then
+			if not char:FindFirstChild("Highlight") then
+				local highlight = Instance.new("Highlight")
+				highlight.Parent = char
+				highlight.Adornee = char
+				highlight.FillColor = Color3.fromRGB(180,0,255)
+				highlight.OutlineColor = Color3.fromRGB(255,255,255)
+			end
+			-- Line drawing (BillboardGui with line) can be implemented here if needed
+		end
 	end
-end)
+end
 
-UserInputService.InputChanged:Connect(function(input)
-	if draggingSlider and input.UserInputType == Enum.UserInputType.MouseMovement then
-		local posX = math.clamp(input.Position.X - sliderBack.AbsolutePosition.X, 0, sliderBack.AbsoluteSize.X)
-		local percentage = posX / sliderBack.AbsoluteSize.X
-		sliderFill.Size = UDim2.new(percentage, 0, 1, 0)
-		local speed = math.floor(percentage * 100)
-		speedValueText.Text = tostring(speed)
-		humanoid.WalkSpeed = speed
-	end
-end)
-
-player.CharacterAdded:Connect(function(char)
-	character = char
-	humanoid = character:WaitForChild("Humanoid")
-	local fillSize = sliderFill.Size.X.Offset
-	local speed = math.floor((fillSize / sliderBack.AbsoluteSize.X) * 100)
-	humanoid.WalkSpeed = speed
-end)
+Players.PlayerAdded:Connect(applyVisuals)
+Players.PlayerRemoving:Connect(applyVisuals)
