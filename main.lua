@@ -2,7 +2,7 @@
 -- Main loader and toggle setup for testing
 
 -- Load the visuals GUI
-loadstring(game:HttpGet("https://github.com/Stormed-Studio/Stormed-Hub/blob/main/visuals.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Stormed-Studio/Stormed-Hub/main/visuals.lua"))()
 
 -- Safe toggles (speed example)
 local Players = game:GetService("Players")
@@ -47,4 +47,5 @@ player.CharacterAdded:Connect(function(char)
 	if speedEnabled then
 		humanoid.WalkSpeed = 16
 	end
+
 end)
