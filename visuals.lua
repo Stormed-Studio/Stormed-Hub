@@ -3,6 +3,7 @@ local Visuals = {}
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
 local ActiveESPs = {}
@@ -139,11 +140,6 @@ local function ESP(plr)
     local function Updater()
         local connection
         connection = RunService.RenderStepped:Connect(function()
-            local Camera = workspace.CurrentCamera
-            if not Camera then
-                Visibility(false, library)
-                return
-            end
             if Settings.Rainbow then
                 local hue = tick() % 5 / 5
                 local color = Color3.fromHSV(hue, 1, 1)
@@ -258,7 +254,7 @@ local function ESP(plr)
 
                     local colorToUse = Settings.Box_Color
                     if Settings.TeamCheck then
-                        colorToUse = (plr.TeamColor == LocalPlayer.TeamColor) and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+                        colorToUse = (plr.TeamColor == LocalPlayer.TeamColor) and Team_Check.Green or Team_Check.Red
                     elseif Settings.UseTeamColor then
                         colorToUse = plr.TeamColor.Color
                     end
@@ -311,6 +307,11 @@ function Visuals:Init(tab)
                 EnableESP()
             else
                 DisableESP()
+                Options.Boxes.Value = false
+                Options.Tracers.Value = false
+                Options.Names.Value = false
+                Options.Skeleton.Value = false
+                Options.Health.Value = false
             end
         end
     })
