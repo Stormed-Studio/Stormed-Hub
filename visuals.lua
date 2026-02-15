@@ -24,10 +24,30 @@ local Settings = {
     TeamCheck = false,
     UseTeamColor = true
 }
-local Team_Check = {
-    TeamCheck = false,
-    Green = Color3.fromRGB(0, 255, 0),
-    Red = Color3.fromRGB(255, 0, 0)
+
+local r15Connections = {
+    {"Head", "UpperTorso"},
+    {"UpperTorso", "LowerTorso"},
+    {"UpperTorso", "LeftUpperArm"},
+    {"LeftUpperArm", "LeftLowerArm"},
+    {"LeftLowerArm", "LeftHand"},
+    {"UpperTorso", "RightUpperArm"},
+    {"RightUpperArm", "RightLowerArm"},
+    {"RightLowerArm", "RightHand"},
+    {"LowerTorso", "LeftUpperLeg"},
+    {"LeftUpperLeg", "LeftLowerLeg"},
+    {"LeftLowerLeg", "LeftFoot"},
+    {"LowerTorso", "RightUpperLeg"},
+    {"RightUpperLeg", "RightLowerLeg"},
+    {"RightLowerLeg", "RightFoot"}
+}
+
+local r6Connections = {
+    {"Head", "Torso"},
+    {"Torso", "Left Arm"},
+    {"Torso", "Right Arm"},
+    {"Torso", "Left Leg"},
+    {"Torso", "Right Leg"}
 }
 
 local function NewQuad(thickness, color)
@@ -70,33 +90,33 @@ local function NewText(color)
 end
 
 local function Visibility(state, lib)
-    for _, x in pairs(lib) do
-        x.Visible = state
+    for k, v in pairs(lib) do
+        if type(v) == "table" then
+            Visibility(state, v)
+        elseif v.Visible ~= nil then
+            v.Visible = state
+        end
     end
 end
 
 local function Remove(lib)
-    for _, x in pairs(lib) do
-        x:Remove()
+    for k, v in pairs(lib) do
+        if type(v) == "table" then
+            Remove(v)
+        elseif v.Remove then
+            v:Remove()
+        end
     end
 end
 
-local skeletonConnections = {
-    {"Head", "UpperTorso"},
-    {"UpperTorso", "LowerTorso"},
-    {"UpperTorso", "LeftUpperArm"},
-    {"LeftUpperArm", "LeftLowerArm"},
-    {"LeftLowerArm", "LeftHand"},
-    {"UpperTorso", "RightUpperArm"},
-    {"RightUpperArm", "RightLowerArm"},
-    {"RightLowerArm", "RightHand"},
-    {"LowerTorso", "LeftUpperLeg"},
-    {"LeftUpperLeg", "LeftLowerLeg"},
-    {"LeftLowerLeg", "LeftFoot"},
-    {"LowerTorso", "RightUpperLeg"},
-    {"RightUpperLeg", "RightLowerLeg"},
-    {"RightLowerLeg", "RightFoot"}
-}
+local function Colorize(lib, color)
+    lib.tracer.Color = color
+    lib.box.Color = color
+    lib.name.Color = color
+    for _, line in pairs(lib.skeleton) do
+        line.Color = color
+    end
+end
 
 local function ESP(plr)
     local library = {
@@ -108,20 +128,14 @@ local function ESP(plr)
         skeleton = {}
     }
 
-    for _, conn in pairs(skeletonConnections) do
+    for _, conn in pairs(r15Connections) do
+        library.skeleton[conn[1].."_"..conn[2]] = NewLine(1, Settings.Box_Color)
+    end
+    for _, conn in pairs(r6Connections) do
         library.skeleton[conn[1].."_"..conn[2]] = NewLine(1, Settings.Box_Color)
     end
 
     ActiveESPs[plr] = {library = library, connection = nil}
-
-    local function Colorize(color)
-        library.tracer.Color = color
-        library.box.Color = color
-        library.name.Color = color
-        for _, line in pairs(library.skeleton) do
-            line.Color = color
-        end
-    end
 
     local function Updater()
         local connection
@@ -129,36 +143,50 @@ local function ESP(plr)
             if Settings.Rainbow then
                 local hue = tick() % 5 / 5
                 local color = Color3.fromHSV(hue, 1, 1)
-                Colorize(color)
+                Colorize(library, color)
             end
 
-            if plr.Character ~= nil and plr.Character:FindFirstChild("Humanoid") ~= nil and plr.Character:FindFirstChild("HumanoidRootPart") ~= nil and plr.Character.Humanoid.Health > 0 and plr.Character:FindFirstChild("Head") ~= nil then
+            if plr.Character and plr.Character:FindFirstChild("Humanoid") and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Character.Humanoid.Health > 0 and plr.Character:FindFirstChild("Head") then
                 local HumPos, OnScreen = Camera:WorldToViewportPoint(plr.Character.HumanoidRootPart.Position)
                 if OnScreen then
-                    local head = Camera:WorldToViewportPoint(plr.Character.Head.Position)
-                    local lower = Camera:WorldToViewportPoint(plr.Character.LowerTorso.Position)
-                    local boxHeight = math.abs(head.Y - lower.Y)
-                    local boxWidth = boxHeight * 0.4
+                    local isR15 = plr.Character:FindFirstChild("UpperTorso") ~= nil
+                    local headPos = Camera:WorldToViewportPoint(plr.Character.Head.Position)
+                    local lowerPart = isR15 and plr.Character:FindFirstChild("LowerTorso") or plr.Character:FindFirstChild("Torso")
+                    local legPart = isR15 and plr.Character:FindFirstChild("LeftLowerLeg") or plr.Character:FindFirstChild("Left Leg")
+                    local lowerPos = lowerPart and Camera:WorldToViewportPoint(lowerPart.Position) or headPos
+                    if legPart then
+                        lowerPos = Camera:WorldToViewportPoint(legPart.Position)
+                    end
+                    local boxHeight = math.abs(headPos.Y - lowerPos.Y) * (isR15 and 1 or 1.5)
+                    local boxWidth = boxHeight * 0.5
 
                     if Settings.Boxes then
-                        library.box.Size = Vector2.new(boxWidth, boxHeight)
-                        library.box.Position = Vector2.new(HumPos.X - boxWidth / 2, HumPos.Y - boxHeight / 2)
+                        local topLeft = Vector2.new(HumPos.X - boxWidth / 2, HumPos.Y - boxHeight / 2)
+                        local topRight = Vector2.new(HumPos.X + boxWidth / 2, HumPos.Y - boxHeight / 2)
+                        local bottomRight = Vector2.new(HumPos.X + boxWidth / 2, HumPos.Y + boxHeight / 2)
+                        local bottomLeft = Vector2.new(HumPos.X - boxWidth / 2, HumPos.Y + boxHeight / 2)
+                        library.box.PointA = topLeft
+                        library.box.PointB = topRight
+                        library.box.PointC = bottomRight
+                        library.box.PointD = bottomLeft
                         library.box.Visible = true
                     else
                         library.box.Visible = false
                     end
 
                     if Settings.Tracers then
+                        local tracerFrom = Vector2.new(0, 0)
                         if Settings.Tracer_Origin == "Middle" then
-                            library.tracer.From = Camera.ViewportSize * 0.5
+                            tracerFrom = Camera.ViewportSize * 0.5
                         elseif Settings.Tracer_Origin == "Bottom" then
-                            library.tracer.From = Vector2.new(Camera.ViewportSize.X * 0.5, Camera.ViewportSize.Y)
+                            tracerFrom = Vector2.new(Camera.ViewportSize.X * 0.5, Camera.ViewportSize.Y)
                         elseif Settings.Tracer_Origin == "Top" then
-                            library.tracer.From = Vector2.new(Camera.ViewportSize.X * 0.5, 0)
+                            tracerFrom = Vector2.new(Camera.ViewportSize.X * 0.5, 0)
                         end
                         if Settings.Tracer_FollowMouse then
-                            library.tracer.From = UserInputService:GetMouseLocation()
+                            tracerFrom = UserInputService:GetMouseLocation()
                         end
+                        library.tracer.From = tracerFrom
                         library.tracer.To = Vector2.new(HumPos.X, HumPos.Y + boxHeight / 2)
                         library.tracer.Visible = true
                     else
@@ -166,18 +194,16 @@ local function ESP(plr)
                     end
 
                     if Settings.Health then
-                        local d = math.clamp(boxHeight, 0, math.huge)
+                        local d = boxHeight
                         local healthoffset = plr.Character.Humanoid.Health / plr.Character.Humanoid.MaxHealth * d
-
-                        library.greenhealth.From = Vector2.new(HumPos.X - boxWidth / 2 - 4, HumPos.Y + boxHeight / 2)
-                        library.greenhealth.To = Vector2.new(HumPos.X - boxWidth / 2 - 4, HumPos.Y + boxHeight / 2 - healthoffset)
-
-                        library.healthbar.From = Vector2.new(HumPos.X - boxWidth / 2 - 4, HumPos.Y + boxHeight / 2)
-                        library.healthbar.To = Vector2.new(HumPos.X - boxWidth / 2 - 4, HumPos.Y - boxHeight / 2)
-
+                        local bottomY = HumPos.Y + boxHeight / 2
+                        local topY = HumPos.Y - boxHeight / 2
+                        library.greenhealth.From = Vector2.new(HumPos.X - boxWidth / 2 - 4, bottomY)
+                        library.greenhealth.To = Vector2.new(HumPos.X - boxWidth / 2 - 4, bottomY - healthoffset)
+                        library.healthbar.From = Vector2.new(HumPos.X - boxWidth / 2 - 4, bottomY)
+                        library.healthbar.To = Vector2.new(HumPos.X - boxWidth / 2 - 4, topY)
                         local green = Color3.fromRGB(0, 255, 0)
                         local red = Color3.fromRGB(255, 0, 0)
-
                         library.greenhealth.Color = red:lerp(green, plr.Character.Humanoid.Health / plr.Character.Humanoid.MaxHealth)
                         library.greenhealth.Visible = true
                         library.healthbar.Visible = true
@@ -188,28 +214,37 @@ local function ESP(plr)
 
                     if Settings.Names then
                         library.name.Text = plr.Name
-                        library.name.Position = Vector2.new(HumPos.X, HumPos.Y - boxHeight / 2 - library.name.TextBounds.Y / 2 - 2)
+                        library.name.Position = Vector2.new(HumPos.X, HumPos.Y - boxHeight / 2 - library.name.TextBounds.Y - 2)
                         library.name.Visible = true
                     else
                         library.name.Visible = false
                     end
 
                     if Settings.Skeleton then
-                        for _, conn in pairs(skeletonConnections) do
+                        local connections = isR15 and r15Connections or r6Connections
+                        local otherConnections = isR15 and r6Connections or r15Connections
+                        for _, conn in pairs(connections) do
+                            local key = conn[1].."_"..conn[2]
+                            local line = library.skeleton[key]
                             local part1 = plr.Character:FindFirstChild(conn[1])
                             local part2 = plr.Character:FindFirstChild(conn[2])
                             if part1 and part2 then
                                 local pos1, on1 = Camera:WorldToViewportPoint(part1.Position)
                                 local pos2, on2 = Camera:WorldToViewportPoint(part2.Position)
                                 if on1 and on2 then
-                                    local line = library.skeleton[conn[1].."_"..conn[2]]
                                     line.From = Vector2.new(pos1.X, pos1.Y)
                                     line.To = Vector2.new(pos2.X, pos2.Y)
                                     line.Visible = true
                                 else
-                                    library.skeleton[conn[1].."_"..conn[2]].Visible = false
+                                    line.Visible = false
                                 end
+                            else
+                                line.Visible = false
                             end
+                        end
+                        for _, conn in pairs(otherConnections) do
+                            local key = conn[1].."_"..conn[2]
+                            library.skeleton[key].Visible = false
                         end
                     else
                         for _, line in pairs(library.skeleton) do
@@ -217,28 +252,18 @@ local function ESP(plr)
                         end
                     end
 
+                    local colorToUse = Settings.Box_Color
                     if Settings.TeamCheck then
-                        if plr.TeamColor == LocalPlayer.TeamColor then
-                            Colorize(Team_Check.Green)
-                        else 
-                            Colorize(Team_Check.Red)
-                        end
+                        colorToUse = (plr.TeamColor == LocalPlayer.TeamColor) and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
                     elseif Settings.UseTeamColor then
-                        Colorize(plr.TeamColor.Color)
-                    else
-                        Colorize(Settings.Box_Color)
+                        colorToUse = plr.TeamColor.Color
                     end
+                    Colorize(library, colorToUse)
                 else 
                     Visibility(false, library)
-                    for _, line in pairs(library.skeleton) do
-                        line.Visible = false
-                    end
                 end
             else 
                 Visibility(false, library)
-                for _, line in pairs(library.skeleton) do
-                    line.Visible = false
-                end
                 if not Players:FindFirstChild(plr.Name) then
                     connection:Disconnect()
                 end
@@ -265,10 +290,10 @@ function Visuals:Init(tab)
     local function DisableESP()
         for plr, data in pairs(ActiveESPs) do
             Visibility(false, data.library)
-            Remove(data.library)
             if data.connection then
                 data.connection:Disconnect()
             end
+            Remove(data.library)
         end
         ActiveESPs = {}
     end
@@ -392,10 +417,10 @@ function Visuals:Init(tab)
     Players.PlayerRemoving:Connect(function(plr)
         if ActiveESPs[plr] then
             Visibility(false, ActiveESPs[plr].library)
-            Remove(ActiveESPs[plr].library)
             if ActiveESPs[plr].connection then
                 ActiveESPs[plr].connection:Disconnect()
             end
+            Remove(ActiveESPs[plr].library)
             ActiveESPs[plr] = nil
         end
     end)
