@@ -81,11 +81,20 @@ game.Players.LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end)
 
+local MenuGroup = Tabs.Settings:AddLeftGroupbox("Menu")
+MenuGroup:AddButton("Unload", function() Library:Unload() end)
+MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", {
+    Default = Enum.KeyCode.RightControl,
+    NoUI = true,
+    Text = "Menu keybind"
+})
+Library.ToggleKeybind = Options.MenuKeybind
+
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
-SaveManager:BuildConfigSection(Tabs.Settings)
-ThemeManager:ApplyToTab(Tabs.Settings)
-
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes{"MenuKeybind"}
 SaveManager:SetFolder("StormedHub")
 SaveManager:BuildConfigSection(Tabs.Settings)
+ThemeManager:ApplyToTab(Tabs.Settings)
 SaveManager:LoadAutoloadConfig()
