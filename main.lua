@@ -1,15 +1,55 @@
-local repo = "https://raw.githubusercontent.com/mstudio45/LinoriaLib/main/"
-local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
-local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
-local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
+-- Ensure services/UI are ready before building the menu
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
 
--- Silence voice/speaking remote spam warnings
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
-    if obj:IsA("RemoteEvent") and (obj.Name:lower():find("speaking") or obj.Name:lower():find("voice") or obj.Name:lower():find("likely")) then
-        pcall(function()
-            obj.OnClientEvent:Connect(function() end)  -- empty handler = no log
-        end)
+local function HttpGet(url)
+    -- Prefer executor request APIs (some environments block/omit game:HttpGet).
+    local req = (syn and syn.request) or (http and http.request) or http_request or request
+    if req then
+        local res = req({ Url = url, Method = "GET" })
+        if type(res) == "table" then
+            local body = res.Body or res.body
+            if body ~= nil then
+                return body
+            end
+        elseif type(res) == "string" then
+            return res
+        end
+    end
+
+    if game and game.HttpGet then
+        return game:HttpGet(url)
+    end
+
+    error("No supported HTTP GET function found (missing request and game:HttpGet)")
+end
+
+local function LoadRemote(url)
+    local src = HttpGet(url)
+    if type(src) ~= "string" then
+        error(("HTTP GET returned %s (%s) for %s"):format(type(src), tostring(src), url))
+    end
+    local fn, err = loadstring(src)
+    if not fn then
+        error(("Compile error (%s): %s"):format(url, tostring(err)))
+    end
+    local ok, mod = pcall(fn)
+    if not ok then
+        error(("Runtime error (%s): %s"):format(url, tostring(mod)))
+    end
+    return mod
+end
+
+local repo = "https://raw.githubusercontent.com/mstudio45/LinoriaLib/main/"
+local Library = LoadRemote(repo .. "Library.lua")
+local ThemeManager = LoadRemote(repo .. "addons/ThemeManager.lua")
+local SaveManager = LoadRemote(repo .. "addons/SaveManager.lua")
+
+local function Try(label, fn)
+    local ok, err = pcall(fn)
+    if not ok then
+        warn(("StormedHub: %s failed: %s"):format(label, tostring(err)))
     end
 end
 
@@ -25,6 +65,28 @@ local Tabs = {
     Visuals = Window:AddTab("Visuals"),
     Settings = Window:AddTab("Settings")
 }
+
+-- Show the menu even if AutoShow is ignored by a library variant.
+Try("Force window show", function()
+    if Window.Show then
+        Window:Show()
+    end
+end)
+
+-- Silence voice/speaking remote spam warnings (run async so UI appears immediately)
+task.spawn(function()
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
+        if obj:IsA("RemoteEvent") then
+            local n = obj.Name:lower()
+            if n:find("speaking") or n:find("voice") or n:find("likely") then
+                pcall(function()
+                    obj.OnClientEvent:Connect(function() end) -- empty handler = no log
+                end)
+            end
+        end
+    end
+end)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -198,6 +260,8 @@ Exploits:AddToggle("AntiFling", {
 
 local FlingTargets = {}
 local FlingConnections = {}
+local OldPos
+local SkidFling
 Exploits:AddToggle("FlingAll", {
     Text = "Fling All",
     Default = false,
@@ -238,81 +302,91 @@ Players.PlayerRemoving:Connect(function(plr)
     FlingTargets[plr] = nil
 end)
 
-function SkidFling(TargetPlayer)
+SkidFling = function(TargetPlayer)
     local Character = LocalPlayer.Character
     local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-    local RootPart = Humanoid and Humanoid.RootPart
-    local TCharacter = TargetPlayer.Character
-    if not TCharacter then return end
-    
-    local THumanoid = TCharacter:FindFirstChildOfClass("Humanoid")
-    local TRootPart = THumanoid and THumanoid.RootPart
-    local THead = TCharacter:FindFirstChild("Head")
-    local Accessory = TCharacter:FindFirstChildOfClass("Accessory")
-    local Handle = Accessory and Accessory:FindFirstChild("Handle")
-    
-    if Character and Humanoid and RootPart then
-        if RootPart.Velocity.Magnitude < 50 then
-            OldPos = RootPart.CFrame
+    local RootPart = Character and (Character:FindFirstChild("HumanoidRootPart") or (Humanoid and Humanoid.RootPart))
+    if not (Character and Humanoid and RootPart) then
+        return
+    end
+
+    local TCharacter = TargetPlayer and TargetPlayer.Character
+    local THumanoid = TCharacter and TCharacter:FindFirstChildOfClass("Humanoid")
+    local TRootPart = TCharacter and (TCharacter:FindFirstChild("HumanoidRootPart") or (THumanoid and THumanoid.RootPart))
+    if not (TCharacter and THumanoid and TRootPart) then
+        return
+    end
+
+    if RootPart.Velocity.Magnitude < 50 then
+        OldPos = RootPart.CFrame
+    end
+    local SafeOldPos = OldPos or RootPart.CFrame
+
+    if THumanoid.Sit then
+        return
+    end
+
+    local cam = workspace.CurrentCamera
+    if cam then
+        local subject = TCharacter:FindFirstChild("Head")
+        if not subject then
+            local accessory = TCharacter:FindFirstChildOfClass("Accessory")
+            subject = accessory and accessory:FindFirstChild("Handle")
         end
-        
-        if THumanoid and THumanoid.Sit then return end
-        
-        if THead then
-            workspace.CurrentCamera.CameraSubject = THead
-        elseif Handle then
-            workspace.CurrentCamera.CameraSubject = Handle
-        else
-            workspace.CurrentCamera.CameraSubject = THumanoid
+        cam.CameraSubject = subject or THumanoid
+    end
+
+    local FPart = Instance.new("Part")
+    FPart.CFrame = RootPart.CFrame
+    FPart.Anchored = false
+    FPart.CanCollide = false
+    FPart.Transparency = 1
+    FPart.Size = Vector3.new(1, 1, 1)
+    FPart.Parent = Character
+
+    local FPartWeld = Instance.new("WeldConstraint")
+    FPartWeld.Part0 = FPart
+    FPartWeld.Part1 = RootPart
+    FPartWeld.Parent = FPart
+
+    local BV = Instance.new("BodyVelocity")
+    BV.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+    BV.Velocity = Vector3.new(0, 0, 0)
+    BV.Parent = FPart
+
+    for _, v in ipairs(Character:GetChildren()) do
+        if v:IsA("BasePart") then
+            v.Velocity = Vector3.new(0, 0, 0)
+            v.CanCollide = false
         end
-        
-        local FPart = Instance.new("Part")
-        FPart.CFrame = RootPart.CFrame
-        FPart.Anchored = false
-        FPart.CanCollide = false
-        FPart.Transparency = 1
-        FPart.Parent = Character
-        
-        local FPartWeld = Instance.new("Weld")
-        FPartWeld.Part0 = FPart
-        FPartWeld.Part1 = RootPart
-        FPartWeld.Parent = FPart
-        
-        local BV = Instance.new("BodyVelocity")
-        BV.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-        BV.Velocity = Vector3.new(0, 0, 0)
-        BV.Parent = FPart
-        
-        for _, v in ipairs(Character:GetChildren()) do
-            if v:IsA("BasePart") then
-                v.Velocity = Vector3.new(0, 0, 0)
-                v.CanCollide = false
-            end
-        end
-        
-        task.wait(0.1)
-        FPart.Position = TRootPart.Position + Vector3.new(0, 1, 0)
-        task.wait(0.1)
-        FPart.Position = TRootPart.Position + Vector3.new(0, 2, 0)
-        task.wait(0.1)
-        
-        BV.Velocity = Vector3.new(0, 500, 0)
-        
-        task.wait(0.15)
-        
+    end
+
+    task.wait(0.1)
+    FPart.Position = TRootPart.Position + Vector3.new(0, 1, 0)
+    task.wait(0.1)
+    FPart.Position = TRootPart.Position + Vector3.new(0, 2, 0)
+    task.wait(0.1)
+
+    BV.Velocity = Vector3.new(0, 500, 0)
+
+    task.wait(0.15)
+
+    if FPart and FPart.Parent then
         FPart:Destroy()
-        
-        RootPart.CFrame = OldPos
-        if not getgenv().NoCamera then
-            workspace.CurrentCamera.CameraSubject = Humanoid
-        end
+    end
+
+    RootPart.CFrame = SafeOldPos
+    if cam and not getgenv().NoCamera then
+        cam.CameraSubject = Humanoid
     end
 end
 
-local success, Visuals = pcall(loadstring(game:HttpGet("https://raw.githubusercontent.com/Stormed-Studio/Stormed-Hub/main/visuals.lua")))
-if success then
-    Visuals:Init(Tabs.Visuals)
-end
+Try("Visuals init", function()
+    local Visuals = LoadRemote("https://raw.githubusercontent.com/Stormed-Studio/Stormed-Hub/main/visuals.lua")
+    if type(Visuals) == "table" and Visuals.Init then
+        Visuals:Init(Tabs.Visuals)
+    end
+end)
 
 local Keybinds = Tabs.Settings:AddRightGroupbox("Keybinds")
 Keybinds:AddKeybind("MenuKeybind", {
@@ -324,17 +398,25 @@ Keybinds:AddKeybind("MenuKeybind", {
     end
 })
 
-ThemeManager:SetLibrary(Library)
-ThemeManager:SetFolder("StormedHub")
-ThemeManager:ApplyToTab(Tabs.Settings)
+Try("ThemeManager init", function()
+    ThemeManager:SetLibrary(Library)
+    ThemeManager:SetFolder("StormedHub")
+    ThemeManager:ApplyToTab(Tabs.Settings)
+end)
 
-SaveManager:SetLibrary(Library)
-SaveManager:IgnoreThemeSettings()
-SaveManager:SetFolder("StormedHub")
-SaveManager:BuildConfigSection(Tabs.Settings)
-SaveManager:LoadAutoloadConfig()
+Try("SaveManager init", function()
+    SaveManager:SetLibrary(Library)
+    SaveManager:IgnoreThemeSettings()
+    SaveManager:SetFolder("StormedHub")
+    SaveManager:BuildConfigSection(Tabs.Settings)
+    SaveManager:LoadAutoloadConfig()
+end)
 
-Library.ToggleKeybind = Options.MenuKeybind.Value
+Try("Menu keybind apply", function()
+    if Options.MenuKeybind and Options.MenuKeybind.Value then
+        Library.ToggleKeybind = Options.MenuKeybind.Value
+    end
+end)
 
 for _, option in pairs(Library.Options) do
     pcall(function()
