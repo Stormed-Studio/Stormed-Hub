@@ -112,12 +112,13 @@ Keybinds:AddKeybind("MenuKeybind", {
     Text = "Menu Toggle",
     Default = Enum.KeyCode.RightControl,
     Mode = "Toggle",
-    Callback = function(KeyCode)
-        Library.ToggleKeybind.Value = KeyCode
+    Callback = function(Key)
+        Library.ToggleKeybind = Key
     end
 })
 
 ThemeManager:SetLibrary(Library)
+ThemeManager:SetFolder("StormedHub")
 ThemeManager:ApplyToTab(Tabs.Settings)
 
 SaveManager:SetLibrary(Library)
@@ -126,7 +127,7 @@ SaveManager:SetFolder("StormedHub")
 SaveManager:BuildConfigSection(Tabs.Settings)
 SaveManager:LoadAutoloadConfig()
 
-Library.ToggleKeybind.Value = Library.Options.MenuKeybind.Value
+Library.ToggleKeybind = Options.MenuKeybind.Value
 
 for _, option in pairs(Library.Options) do
     pcall(function()
