@@ -3,6 +3,16 @@ local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
 local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
 
+-- Silence voice/speaking remote spam warnings
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
+    if obj:IsA("RemoteEvent") and (obj.Name:lower():find("speaking") or obj.Name:lower():find("voice") or obj.Name:lower():find("likely")) then
+        pcall(function()
+            obj.OnClientEvent:Connect(function() end)  -- empty handler = no log
+        end)
+    end
+end
+
 local Window = Library:CreateWindow({
     Title = "Stormed Hub",
     Center = true,
@@ -344,3 +354,4 @@ LocalPlayer.CharacterAdded:Connect(function(char)
         char.Humanoid.JumpPower = Options.JumpPower.Value
     end
 end)
+
