@@ -3,7 +3,6 @@ local Visuals = {}
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
 local ActiveESPs = {}
@@ -140,6 +139,11 @@ local function ESP(plr)
     local function Updater()
         local connection
         connection = RunService.RenderStepped:Connect(function()
+            local Camera = workspace.CurrentCamera
+            if not Camera then
+                Visibility(false, library)
+                return
+            end
             if Settings.Rainbow then
                 local hue = tick() % 5 / 5
                 local color = Color3.fromHSV(hue, 1, 1)
