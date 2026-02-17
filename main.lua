@@ -8,38 +8,18 @@ local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
 local Visuals = loadstring(game:HttpGet("https://raw.githubusercontent.com/Stormed-Studio/Stormed-Hub/main/visuals.lua"))()
 
 local Window = Library:CreateWindow({
-    Title = 'Stormed Hub | Prison Life',
+    Title = "Stormed Hub | Prison Life",
     Center = true,
     AutoShow = true,
     TabPadding = 8,
 })
 
 local Tabs = {
-    Combat = Window:AddTab('Combat'),
-    Visuals = Window:AddTab('Visuals'),
-    Movement = Window:AddTab('Movement'),
-    Misc = Window:AddTab('Misc'),
-}
-
-local Flags = {
-    SilentAim = false,
-    Aimbot = false,
-    SilentSwitch = true, -- true for silent, false for visible
-    HitGuards = false,
-    HitInmates = true,
-    HitCriminals = true,
-    HitNeutral = false,
-    FOVSize = 150,
-    ESPEnabled = false,
-    ESPBoxes = true,
-    ESPNames = true,
-    ESPHealth = true,
-    ESPTracers = true,
-    Speed = 16,
-    Noclip = false,
-    InfJump = false,
-    InfAmmo = false,
-    GunMods = false,
+    Combat = Window:AddTab("Combat"),
+    Visuals = Window:AddTab("Visuals"),
+    Movement = Window:AddTab("Movement"),
+    Misc = Window:AddTab("Misc"),
+    Settings = Window:AddTab("Settings"),
 }
 
 local Players = game:GetService("Players")
@@ -47,76 +27,82 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local mt = getrawmetatable(game)
 local oldNamecall = mt.__namecall
 setreadonly(mt, false)
 
-mt.__namecall = newcclosure(function(self, ...)
-    local args = {...}
-    local method = getnamecallmethod()
-    if method == "FindPartOnRayWithIgnoreList" and Flags.SilentAim and Flags.SilentSwitch then
-        local target = Visuals:GetClosestInFOV(Flags.FOVSize, Flags.HitGuards, Flags.HitInmates, Flags.HitCriminals, Flags.HitNeutral)
+mt.__namecall = newcclosure(function(Self, ...)
+    local Args = {...}
+    local Method = getnamecallmethod()
+    if Method == "FindPartOnRayWithIgnoreList" and Library.Flags.SilentAim and Library.Flags.SilentMode then
+        local target = Visuals:GetClosestInFOV(Library.Flags.FOVRadius or 150, Library.Flags.TargetGuards or false, Library.Flags.TargetInmates or false, Library.Flags.TargetCriminals or false, Library.Flags.TargetNeutral or false)
         if target then
-            args[1] = Ray.new(Camera.CFrame.Position, (target.Position - Camera.CFrame.Position).Unit * 1000)
+            Args[1] = Ray.new(Camera.CFrame.Position, (target.Position - Camera.CFrame.Position).Unit * 1000)
         end
     end
-    return oldNamecall(self, unpack(args))
+    return oldNamecall(Self, unpack(Args))
 end)
-
 setreadonly(mt, true)
 
-local function applyGunMods(tool)
-    if tool:FindFirstChild("ACS_Client") and tool.ACS_Client:FindFirstChild("ACSRequire") then
-        local engine = require(tool.ACS_Client.ACSRequire)
-        engine.Settings.Recoil = 0
-        engine.Settings.Spread = 0
-        engine.Settings.FireRate = 0.01
-        engine.Settings.Ammo = math.huge
-        engine.Settings.ReloadTime = 0
-    end
+local function applyACSMods(tool)
+    pcall(function()
+        if tool:FindFirstChild("ACS_Client") and tool.ACS_Client:FindFirstChild("ACSRequire") then
+            local engine = require(tool.ACS_Client.ACSRequire)
+            engine.Settings.Recoil = 0
+            engine.Settings.Spread = 0
+            engine.Settings.FireRate = 0.01
+            engine.Settings.Ammo = math.huge
+            engine.Settings.ReloadTime = 0
+        end
+    end)
 end
 
-local function updateGuns()
-    if Flags.GunMods or Flags.InfAmmo then
-        for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do
+local function updateGunStates()
+    if Library.Flags.InfAmmo or Library.Flags.GunMods then
+        for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
             if item:IsA("Tool") and item:FindFirstChild("GunStates") then
-                local states = require(item.GunStates)
-                if Flags.InfAmmo then
-                    states.MaxAmmo = math.huge
-                    states.CurrentAmmo = math.huge
-                    states.StoredAmmo = math.huge
-                end
-                if Flags.GunMods then
-                    states.FireRate = 0.01
-                    states.Spread = 0
-                    states.ReloadTime = 0
-                    states.Bullets = 10
-                    states.Range = math.huge
-                    states.Damage = math.huge
-                end
+                pcall(function()
+                    local states = require(item.GunStates)
+                    if Library.Flags.InfAmmo then
+                        states.MaxAmmo = math.huge
+                        states.CurrentAmmo = math.huge
+                        states.StoredAmmo = math.huge
+                    end
+                    if Library.Flags.GunMods then
+                        states.FireRate = 0.01
+                        states.Spread = 0
+                        states.ReloadTime = 0
+                        states.Bullets = 10
+                        states.Range = math.huge
+                        states.Damage = math.huge
+                    end
+                end)
             end
         end
         if LocalPlayer.Character then
             local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
             if tool and tool:FindFirstChild("GunStates") then
-                local states = require(tool.GunStates)
-                if Flags.InfAmmo then
-                    states.MaxAmmo = math.huge
-                    states.CurrentAmmo = math.huge
-                    states.StoredAmmo = math.huge
-                end
-                if Flags.GunMods then
-                    states.FireRate = 0.01
-                    states.Spread = 0
-                    states.ReloadTime = 0
-                    states.Bullets = 10
-                    states.Range = math.huge
-                    states.Damage = math.huge
-                end
+                pcall(function()
+                    local states = require(tool.GunStates)
+                    if Library.Flags.InfAmmo then
+                        states.MaxAmmo = math.huge
+                        states.CurrentAmmo = math.huge
+                        states.StoredAmmo = math.huge
+                    end
+                    if Library.Flags.GunMods then
+                        states.FireRate = 0.01
+                        states.Spread = 0
+                        states.ReloadTime = 0
+                        states.Bullets = 10
+                        states.Range = math.huge
+                        states.Damage = math.huge
+                    end
+                end)
             end
             if tool then
-                applyGunMods(tool)
+                applyACSMods(tool)
             end
         end
     end
@@ -124,252 +110,221 @@ end
 
 LocalPlayer.CharacterAdded:Connect(function(char)
     char:WaitForChild("Humanoid")
-    if Flags.Speed > 16 then
-        char.Humanoid.WalkSpeed = Flags.Speed
-    end
-    updateGuns()
+    char.Humanoid.WalkSpeed = Library.Flags.WalkSpeed or 16
+    updateGunStates()
 end)
 
 if LocalPlayer.Character then
-    if Flags.Speed > 16 then
-        LocalPlayer.Character.Humanoid.WalkSpeed = Flags.Speed
-    end
-    updateGuns()
+    LocalPlayer.Character.Humanoid.WalkSpeed = Library.Flags.WalkSpeed or 16
+    updateGunStates()
 end
 
 RunService.RenderStepped:Connect(function()
-    Visuals:UpdateFOV(Flags.FOVSize, Flags.SilentAim)
-    if Flags.ESPEnabled then
-        Visuals:UpdateESP(Flags.ESPBoxes, Flags.ESPNames, Flags.ESPHealth, Flags.ESPTracers)
+    Visuals:UpdateFOV(Library.Flags.FOVRadius or 150, Library.Flags.SilentAim)
+    if Library.Flags.ESPEnabled then
+        Visuals:UpdateESP(Library.Flags.ESPBoxes, Library.Flags.ESPNames, Library.Flags.ESPHealth, Library.Flags.ESPTracers)
     end
-    if Flags.Aimbot and not Flags.SilentSwitch then
-        local target = Visuals:GetClosestInFOV(Flags.FOVSize, Flags.HitGuards, Flags.HitInmates, Flags.HitCriminals, Flags.HitNeutral)
+    if Library.Flags.Aimbot and not Library.Flags.SilentMode then
+        local target = Visuals:GetClosestInFOV(Library.Flags.FOVRadius or 150, Library.Flags.TargetGuards or false, Library.Flags.TargetInmates or false, Library.Flags.TargetCriminals or false, Library.Flags.TargetNeutral or false)
         if target then
-            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, target.Position)
+            local predicted = target.Position + (target.AssemblyLinearVelocity * 0.1)
+            Camera.CFrame = Camera.CFrame:Lerp(CFrame.lookAt(Camera.CFrame.Position, predicted), 0.15)
         end
     end
-    updateGuns()
+    updateGunStates()
 end)
 
 RunService.Stepped:Connect(function()
-    if Flags.Noclip and LocalPlayer.Character then
-        for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
-            if part:IsA("BasePart") and part.CanCollide then
+    if Library.Flags.Noclip and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
                 part.CanCollide = false
             end
         end
     end
 end)
 
-UserInputService.InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.Space and Flags.InfJump then
-        if LocalPlayer.Character and LocalPlayer.Character.Humanoid then
-            LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-        end
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.KeyCode == Enum.KeyCode.Space and Library.Flags.InfiniteJump then
+        LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
     end
 end)
 
-local CombatLeftGroup = Tabs.Combat:AddLeftGroupbox('Aimbot & Silent Aim')
-
-CombatLeftGroup:AddToggle('SilentAimToggle', {
-    Text = 'Silent Aim',
-    Default = false,
-    Callback = function(Value)
-        Flags.SilentAim = Value
-    end
+local CombatLeft = Tabs.Combat:AddLeftGroupbox("Aimbot & Silent Aim")
+CombatLeft:AddToggle({
+    Name = "Silent Aim",
+    CurrentValue = false,
+    Flag = "SilentAim",
+    Callback = function() end
 })
-
-CombatLeftGroup:AddToggle('AimbotToggle', {
-    Text = 'Visible Aimbot',
-    Default = false,
-    Callback = function(Value)
-        Flags.Aimbot = Value
-    end
+CombatLeft:AddToggle({
+    Name = "Visible Aimbot",
+    CurrentValue = false,
+    Flag = "Aimbot",
+    Callback = function() end
 })
-
-CombatLeftGroup:AddToggle('SilentSwitchToggle', {
-    Text = 'Silent Mode (vs Visible)',
-    Default = true,
-    Callback = function(Value)
-        Flags.SilentSwitch = Value
-    end
+CombatLeft:AddToggle({
+    Name = "Silent Mode",
+    CurrentValue = true,
+    Flag = "SilentMode",
+    Callback = function() end
 })
-
-CombatLeftGroup:AddSlider('FOVSlider', {
-    Text = 'FOV Size',
+CombatLeft:AddSlider({
+    Name = "FOV Radius",
     Default = 150,
     Min = 50,
     Max = 500,
-    Rounding = 0,
-    Callback = function(Value)
-        Flags.FOVSize = Value
-    end
+    Rounding = 1,
+    Flag = "FOVRadius",
+    Callback = function() end
 })
 
-local TeamFilters = Tabs.Combat:AddRightGroupbox('Team Filters')
-
-TeamFilters:AddToggle('HitGuards', {
-    Text = 'Hit Guards',
-    Default = false,
-    Callback = function(Value)
-        Flags.HitGuards = Value
-    end
+local TeamFilters = Tabs.Combat:AddRightGroupbox("Team Targets")
+TeamFilters:AddToggle({
+    Name = "Guards",
+    CurrentValue = false,
+    Flag = "TargetGuards",
+    Callback = function() end
 })
-
-TeamFilters:AddToggle('HitInmates', {
-    Text = 'Hit Inmates',
-    Default = true,
-    Callback = function(Value)
-        Flags.HitInmates = Value
-    end
+TeamFilters:AddToggle({
+    Name = "Inmates",
+    CurrentValue = true,
+    Flag = "TargetInmates",
+    Callback = function() end
 })
-
-TeamFilters:AddToggle('HitCriminals', {
-    Text = 'Hit Criminals',
-    Default = true,
-    Callback = function(Value)
-        Flags.HitCriminals = Value
-    end
+TeamFilters:AddToggle({
+    Name = "Criminals",
+    CurrentValue = true,
+    Flag = "TargetCriminals",
+    Callback = function() end
 })
-
-TeamFilters:AddToggle('HitNeutral', {
-    Text = 'Hit Neutral',
-    Default = false,
-    Callback = function(Value)
-        Flags.HitNeutral = Value
-    end
+TeamFilters:AddToggle({
+    Name = "Neutral",
+    CurrentValue = false,
+    Flag = "TargetNeutral",
+    Callback = function() end
 })
-
 TeamFilters:AddButton({
-    Text = 'Auto Scan Enemies',
-    Func = function()
-        Flags.HitGuards = LocalPlayer.Team ~= game.Teams.Guards
-        Flags.HitInmates = LocalPlayer.Team ~= game.Teams.Inmates
-        Flags.HitCriminals = LocalPlayer.Team ~= game.Teams.Criminals
-        Flags.HitNeutral = LocalPlayer.Team ~= game.Teams.Neutral
-        Library:Notify('Auto scanned enemies based on your team.')
+    Name = "Auto Target Enemies",
+    Callback = function()
+        pcall(function()
+            Library.Flags.TargetGuards = LocalPlayer.Team ~= game.Teams.Guards
+            Library.Flags.TargetInmates = LocalPlayer.Team ~= game.Teams.Inmates
+            Library.Flags.TargetCriminals = LocalPlayer.Team ~= game.Teams.Criminals
+            Library.Flags.TargetNeutral = LocalPlayer.Team ~= game.Teams.Neutral
+        end)
+        Library:Notify("Targets updated based on your team!")
     end
 })
 
-local VisualsLeftGroup = Tabs.Visuals:AddLeftGroupbox('ESP Options')
-
-VisualsLeftGroup:AddToggle('ESPEnabled', {
-    Text = 'Enable ESP',
-    Default = false,
+local ESPGroup = Tabs.Visuals:AddLeftGroupbox("ESP")
+ESPGroup:AddToggle({
+    Name = "Enabled",
+    CurrentValue = false,
+    Flag = "ESPEnabled",
     Callback = function(Value)
-        Flags.ESPEnabled = Value
         if not Value then
             Visuals:ClearESP()
         end
     end
 })
-
-VisualsLeftGroup:AddToggle('ESPBoxes', {
-    Text = 'Boxes',
-    Default = true,
-    Callback = function(Value)
-        Flags.ESPBoxes = Value
-    end
+ESPGroup:AddToggle({
+    Name = "Boxes",
+    CurrentValue = true,
+    Flag = "ESPBoxes",
+    Callback = function() end
+})
+ESPGroup:AddToggle({
+    Name = "Names",
+    CurrentValue = true,
+    Flag = "ESPNames",
+    Callback = function() end
+})
+ESPGroup:AddToggle({
+    Name = "Health",
+    CurrentValue = true,
+    Flag = "ESPHealth",
+    Callback = function() end
+})
+ESPGroup:AddToggle({
+    Name = "Tracers",
+    CurrentValue = true,
+    Flag = "ESPTracers",
+    Callback = function() end
 })
 
-VisualsLeftGroup:AddToggle('ESPNames', {
-    Text = 'Names',
-    Default = true,
-    Callback = function(Value)
-        Flags.ESPNames = Value
-    end
-})
-
-VisualsLeftGroup:AddToggle('ESPHealth', {
-    Text = 'Health Bars',
-    Default = true,
-    Callback = function(Value)
-        Flags.ESPHealth = Value
-    end
-})
-
-VisualsLeftGroup:AddToggle('ESPTracers', {
-    Text = 'Tracers',
-    Default = true,
-    Callback = function(Value)
-        Flags.ESPTracers = Value
-    end
-})
-
-local MovementLeftGroup = Tabs.Movement:AddLeftGroupbox('Movement Hacks')
-
-MovementLeftGroup:AddSlider('SpeedSlider', {
-    Text = 'Walk Speed',
+local MovementGroup = Tabs.Movement:AddLeftGroupbox("Movement")
+MovementGroup:AddSlider({
+    Name = "Walk Speed",
     Default = 16,
     Min = 16,
-    Max = 50, -- Sneaky max to avoid detection
+    Max = 50,
     Rounding = 0,
+    Flag = "WalkSpeed",
     Callback = function(Value)
-        Flags.Speed = Value
-        if LocalPlayer.Character and LocalPlayer.Character.Humanoid then
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
             LocalPlayer.Character.Humanoid.WalkSpeed = Value
         end
     end
 })
-
-MovementLeftGroup:AddToggle('NoclipToggle', {
-    Text = 'Noclip',
-    Default = false,
-    Callback = function(Value)
-        Flags.Noclip = Value
-    end
+MovementGroup:AddToggle({
+    Name = "Noclip",
+    CurrentValue = false,
+    Flag = "Noclip",
+    Callback = function() end
+})
+MovementGroup:AddToggle({
+    Name = "Infinite Jump",
+    CurrentValue = false,
+    Flag = "InfiniteJump",
+    Callback = function() end
 })
 
-MovementLeftGroup:AddToggle('InfJumpToggle', {
-    Text = 'Infinite Jump',
-    Default = false,
-    Callback = function(Value)
-        Flags.InfJump = Value
-    end
+local MiscGroup = Tabs.Misc:AddLeftGroupbox("Weapons & Misc")
+MiscGroup:AddToggle({
+    Name = "Infinite Ammo",
+    CurrentValue = false,
+    Flag = "InfAmmo",
+    Callback = function() end
 })
-
-local MiscLeftGroup = Tabs.Misc:AddLeftGroupbox('Misc Features')
-
-MiscLeftGroup:AddToggle('InfAmmoToggle', {
-    Text = 'Infinite Ammo',
-    Default = false,
-    Callback = function(Value)
-        Flags.InfAmmo = Value
-    end
+MiscGroup:AddToggle({
+    Name = "Gun Mods (No Spread/Recoil)",
+    CurrentValue = false,
+    Flag = "GunMods",
+    Callback = function() end
 })
-
-MiscLeftGroup:AddToggle('GunModsToggle', {
-    Text = 'OP Gun Mods',
-    Default = false,
-    Callback = function(Value)
-        Flags.GunMods = Value
-    end
-})
-
-MiscLeftGroup:AddButton({
-    Text = 'Arrest All Criminals/Inmates',
-    Func = function()
-        local oldPos = LocalPlayer.Character.HumanoidRootPart.CFrame
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and (p.Team == game.Teams.Inmates or p.Team == game.Teams.Criminals) and p.Character and p.Character.Humanoid.Health > 0 then
-                for i = 1, 5 do
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -1)
-                    game:GetService("ReplicatedStorage").meleeEvent:FireServer(p)
-                    task.wait(0.1)
+MiscGroup:AddButton({
+    Name = "Arrest All Prisoners",
+    Callback = function()
+        if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+        local oldCFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character.Humanoid.Health > 0 and (player.Team == game.Teams.Inmates or player.Team == game.Teams.Criminals) then
+                for i = 1, 3 do
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
+                    ReplicatedStorage.meleeEvent:FireServer(player)
+                    task.wait(0.05)
                 end
             end
         end
-        LocalPlayer.Character.HumanoidRootPart.CFrame = oldPos
-        Library:Notify('Attempted to arrest all.')
+        LocalPlayer.Character.HumanoidRootPart.CFrame = oldCFrame
+        Library:Notify("Arrested all targets!")
     end
 })
 
-Library:SetWatermark('Stormed Hub | Prison Life | v1.0')
+ThemeManager:SetLibrary(Library)
+ThemeManager:BuildConfigSection(Tabs.Settings)
+SaveManager:SetLibrary(Library)
+SaveManager:SetIgnoreIndexes({ "BackgroundColor", "MainColor", "AccentColor", "OutlineColor", "FontColor" })
+SaveManager:SetConfig("StormedHubPrisonLife")
+SaveManager:BuildConfigSection(Tabs.Settings)
+
+Library:SetWatermark("Stormed Hub | Prison Life v1.0")
 
 Library:OnUnload(function()
     Visuals:ClearESP()
     Visuals:ClearFOV()
-    print('Unloaded Stormed Hub')
 end)
 
-Library:Notify('Loaded Stormed Hub! Enjoy.')
+Library:Notify("Stormed Hub loaded successfully!")
