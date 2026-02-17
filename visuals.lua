@@ -8,133 +8,164 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
 local ESPObjects = {}
-local fovCircle = Drawing.new("Circle")
-fovCircle.Thickness = 2
-fovCircle.NumSides = 64
-fovCircle.Color = Color3.fromRGB(255, 255, 255)
-fovCircle.Visible = false
+local fovCircle
 
-function Visuals:GetClosestInFOV(fov, hitGuards, hitInmates, hitCriminals, hitNeutral)
-    local closest, distance = nil, fov
+local function createESPElements(player)
+    if ESPObjects[player] then return end
+
+    local box = Drawing.new("Square")
+    box.Thickness = 2
+    box.Filled = false
+    box.Transparency = 1
+    box.Color = Color3.fromRGB(255, 0, 0)
+    box.Visible = false
+
+    local nameLabel = Drawing.new("Text")
+    nameLabel.Size = 16
+    nameLabel.Font = 2
+    nameLabel.Color = Color3.fromRGB(255, 255, 255)
+    nameLabel.Outline = true
+    nameLabel.Center = true
+    nameLabel.Visible = false
+
+    local healthBarBG = Drawing.new("Line")
+    healthBarBG.Thickness = 3
+    healthBarBG.Color = Color3.fromRGB(50, 50, 50)
+    healthBarBG.Transparency = 0.5
+    healthBarBG.Visible = false
+
+    local healthBar = Drawing.new("Line")
+    healthBar.Thickness = 2
+    healthBar.Color = Color3.fromRGB(0, 255, 0)
+    healthBar.Visible = false
+
+    local tracer = Drawing.new("Line")
+    tracer.Thickness = 1
+    tracer.Color = Color3.fromRGB(255, 255, 255)
+    tracer.Transparency = 0.7
+    tracer.Visible = false
+
+    ESPObjects[player] = {
+        box = box,
+        name = nameLabel,
+        healthBG = healthBarBG,
+        health = healthBar,
+        tracer = tracer
+    }
+end
+
+function Visuals:GetClosestInFOV(fovSize, targetGuards, targetInmates, targetCriminals, targetNeutral)
+    local closestTarget = nil
+    local shortestDistance = fovSize
     local mousePos = UserInputService:GetMouseLocation()
-    for _, player in ipairs(Players:GetPlayers()) do
+
+    for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") and player.Character.Humanoid.Health > 0 then
             local team = player.Team
-            local canHit = false
-            if team == game.Teams.Guards and hitGuards then canHit = true end
-            if team == game.Teams.Inmates and hitInmates then canHit = true end
-            if team == game.Teams.Criminals and hitCriminals then canHit = true end
-            if team == game.Teams.Neutral and hitNeutral then canHit = true end
-            if canHit then
-                local headPos, onScreen = Camera:WorldToViewportPoint(player.Character.Head.Position)
-                if onScreen then
-                    local mag = (Vector2.new(headPos.X, headPos.Y) - mousePos).Magnitude
-                    if mag < distance then
-                        distance = mag
-                        closest = player.Character.Head
+            local canTarget = false
+            if team == game.Teams.Guards and targetGuards then canTarget = true
+            elseif team == game.Teams.Inmates and targetInmates then canTarget = true
+            elseif team == game.Teams.Criminals and targetCriminals then canTarget = true
+            elseif team == game.Teams.Neutral and targetNeutral then canTarget = true
+            end
+            if canTarget then
+                local headPos, visible = Camera:WorldToViewportPoint(player.Character.Head.Position)
+                if visible then
+                    local distance = (Vector2.new(headPos.X, headPos.Y) - mousePos).Magnitude
+                    if distance < shortestDistance then
+                        shortestDistance = distance
+                        closestTarget = player.Character.Head
                     end
                 end
             end
         end
     end
-    return closest
+    return closestTarget
 end
 
 function Visuals:UpdateFOV(size, enabled)
+    if not fovCircle then
+        fovCircle = Drawing.new("Circle")
+        fovCircle.Thickness = 2
+        fovCircle.NumSides = 100
+        fovCircle.Color = Color3.fromRGB(255, 255, 255)
+        fovCircle.Transparency = 0.8
+        fovCircle.Filled = false
+    end
     fovCircle.Radius = size
     fovCircle.Position = UserInputService:GetMouseLocation()
     fovCircle.Visible = enabled
 end
 
 function Visuals:ClearFOV()
-    fovCircle.Visible = false
-    fovCircle:Remove()
+    if fovCircle then
+        fovCircle:Remove()
+        fovCircle = nil
+    end
 end
 
-local function createESP(player)
-    if ESPObjects[player] then return end
-    
-    local box = Drawing.new("Square")
-    box.Thickness = 1
-    box.Color = Color3.fromRGB(255, 0, 0)
-    box.Filled = false
-    box.Visible = false
-    
-    local name = Drawing.new("Text")
-    name.Size = 16
-    name.Color = Color3.fromRGB(255, 255, 255)
-    name.Center = true
-    name.Outline = true
-    name.Visible = false
-    
-    local healthBar = Drawing.new("Line")
-    healthBar.Thickness = 2
-    healthBar.Color = Color3.fromRGB(0, 255, 0)
-    healthBar.Visible = false
-    
-    local tracer = Drawing.new("Line")
-    tracer.Thickness = 1
-    tracer.Color = Color3.fromRGB(255, 255, 255)
-    tracer.Visible = false
-    
-    ESPObjects[player] = {box = box, name = name, health = healthBar, tracer = tracer}
-end
-
-function Visuals:UpdateESP(boxes, names, health, tracers)
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 and player.Character:FindFirstChild("HumanoidRootPart") then
-            createESP(player)
-            local esp = ESPObjects[player]
-            local root = player.Character.HumanoidRootPart
-            local hum = player.Character.Humanoid
+function Visuals:UpdateESP(showBoxes, showNames, showHealth, showTracers)
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Head") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            createESPElements(player)
+            local espData = ESPObjects[player]
+            local rootPart = player.Character.HumanoidRootPart
+            local humanoid = player.Character.Humanoid
             local head = player.Character.Head
-            
-            local rootPos, onScreen = Camera:WorldToViewportPoint(root.Position)
+
+            local rootScreen, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
             if onScreen then
-                local headPos = Camera:WorldToViewportPoint(head.Position)
-                local legPos = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
-                
-                local height = (headPos.Y - legPos.Y) / 2
-                local width = height / 2
-                
-                if boxes then
-                    esp.box.Size = Vector2.new(width, height * 2)
-                    esp.box.Position = Vector2.new(rootPos.X - width / 2, rootPos.Y - height)
-                    esp.box.Visible = true
+                local headScreen = Camera:WorldToViewportPoint(head.Position)
+                local footScreen = Camera:WorldToViewportPoint(rootPart.Position - Vector3.new(0, 4, 0))
+
+                local boxHeight = math.abs(headScreen.Y - footScreen.Y)
+                local boxWidth = boxHeight * 0.4
+
+                if showBoxes then
+                    espData.box.Size = Vector2.new(boxWidth, boxHeight)
+                    espData.box.Position = Vector2.new(rootScreen.X - boxWidth / 2, rootScreen.Y - boxHeight / 2)
+                    espData.box.Visible = true
                 else
-                    esp.box.Visible = false
+                    espData.box.Visible = false
                 end
-                
-                if names then
-                    esp.name.Text = player.Name
-                    esp.name.Position = Vector2.new(rootPos.X, rootPos.Y - height - 16)
-                    esp.name.Visible = true
+
+                if showNames then
+                    espData.name.Text = player.Name
+                    espData.name.Position = Vector2.new(rootScreen.X, rootScreen.Y - boxHeight / 2 - 20)
+                    espData.name.Visible = true
                 else
-                    esp.name.Visible = false
+                    espData.name.Visible = false
                 end
-                
-                if health then
-                    local healthY = height * 2 * (hum.Health / hum.MaxHealth)
-                    esp.health.From = Vector2.new(rootPos.X - width / 2 - 4, rootPos.Y + height)
-                    esp.health.To = Vector2.new(rootPos.X - width / 2 - 4, rootPos.Y + height - healthY)
-                    esp.health.Visible = true
-                    esp.health.Color = Color3.fromHSV((hum.Health / hum.MaxHealth) * 0.3, 1, 1)
+
+                if showHealth then
+                    local healthPercent = humanoid.Health / humanoid.MaxHealth
+                    local barHeight = boxHeight * healthPercent
+                    espData.healthBG.From = Vector2.new(rootScreen.X - boxWidth / 2 - 6, rootScreen.Y - boxHeight / 2)
+                    espData.healthBG.To = Vector2.new(rootScreen.X - boxWidth / 2 - 6, rootScreen.Y + boxHeight / 2)
+                    espData.healthBG.Visible = true
+
+                    espData.health.From = Vector2.new(rootScreen.X - boxWidth / 2 - 6, rootScreen.Y + boxHeight / 2)
+                    espData.health.To = Vector2.new(rootScreen.X - boxWidth / 2 - 6, rootScreen.Y + boxHeight / 2 - barHeight)
+                    espData.health.Color = Color3.fromRGB(255 * (1 - healthPercent), 255 * healthPercent, 0)
+                    espData.health.Visible = true
                 else
-                    esp.health.Visible = false
+                    espData.healthBG.Visible = false
+                    espData.health.Visible = false
                 end
-                
-                if tracers then
-                    esp.tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-                    esp.tracer.To = Vector2.new(rootPos.X, rootPos.Y + height)
-                    esp.tracer.Visible = true
+
+                if showTracers then
+                    espData.tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                    espData.tracer.To = Vector2.new(rootScreen.X, rootScreen.Y)
+                    espData.tracer.Visible = true
                 else
-                    esp.tracer.Visible = false
+                    espData.tracer.Visible = false
                 end
             else
-                esp.box.Visible = false
-                esp.name.Visible = false
-                esp.health.Visible = false
-                esp.tracer.Visible = false
+                espData.box.Visible = false
+                espData.name.Visible = false
+                espData.healthBG.Visible = false
+                espData.health.Visible = false
+                espData.tracer.Visible = false
             end
         elseif ESPObjects[player] then
             Visuals:RemoveESP(player)
@@ -144,8 +175,8 @@ end
 
 function Visuals:RemoveESP(player)
     if ESPObjects[player] then
-        for _, obj in pairs(ESPObjects[player]) do
-            obj:Remove()
+        for _, drawingObj in pairs(ESPObjects[player]) do
+            drawingObj:Remove()
         end
         ESPObjects[player] = nil
     end
@@ -158,13 +189,11 @@ function Visuals:ClearESP()
 end
 
 Players.PlayerAdded:Connect(function(player)
-    createESP(player)
+    player.CharacterAdded:Connect(function()
+        task.wait(1)
+    end)
 end)
 
-for _, player in ipairs(Players:GetPlayers()) do
-    if player ~= LocalPlayer then
-        createESP(player)
-    end
-end
+Players.PlayerRemoving:Connect(Visuals.RemoveESP)
 
 return Visuals
